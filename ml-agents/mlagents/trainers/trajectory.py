@@ -1,4 +1,4 @@
-from typing import List, NamedTuple
+from typing import List, NamedTuple, Optional
 import numpy as np
 
 from mlagents.trainers.buffer import (
@@ -38,7 +38,7 @@ class AgentExperience(NamedTuple):
     action_mask: np.ndarray
     prev_action: np.ndarray
     interrupted: bool
-    memory: np.ndarray
+    memory: Optional[np.ndarray]
     group_status: List[AgentStatus]
     group_reward: float
 
