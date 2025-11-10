@@ -410,7 +410,8 @@ def test_exportable_settings(use_defaults):
                     gamma: 0.999
                     strength: 1.0
             keep_checkpoints: 5
-            max_steps: 500000
+            # max_steps: 500000
+            max_steps: 500
             time_horizon: 1000
             summary_freq: 12000
             checkpoint_interval: 1
