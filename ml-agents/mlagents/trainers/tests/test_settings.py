@@ -413,7 +413,8 @@ def test_exportable_settings(use_defaults):
             # max_steps: 500000
             max_steps: 500
             time_horizon: 1000
-            summary_freq: 12000
+            # summary_freq: 12000
+            summary_freq: 200
             checkpoint_interval: 1
             threaded: true
     env_settings:
