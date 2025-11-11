@@ -468,13 +468,10 @@ class AgentProcessor:
                     self._episode_steps.get(global_agent_id, 0),
                 )
                 # Flush/save trajectory logs for this episode if a logger is present.
-                try:
-                    if self._traj_logger is not None:
-                        print(f"Saving trajectory log for agent {global_agent_id}")
-                        self._traj_logger.end_episode()
-                except Exception:
-                    # Do not let logging failures interrupt cleanup.
-                    pass
+                if self._traj_logger is not None:
+                    print(f"Saving trajectory log for agent {global_agent_id}")
+                    self._traj_logger.end_episode()
+       
                 self._clean_agent_data(global_agent_id)
 
     def _clean_agent_data(self, global_id: GlobalAgentId) -> None:
