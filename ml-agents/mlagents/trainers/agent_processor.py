@@ -1,4 +1,5 @@
 import sys
+import os
 import numpy as np
 from typing import List, Dict, TypeVar, Generic, Tuple, Any, Union
 from collections import defaultdict, Counter
@@ -12,6 +13,7 @@ from mlagents_envs.base_env import (
     TerminalSteps,
     TerminalStep,
 )
+from mlagents.trainers.agent_trajectory_logger import AgentTrajectoryLogger
 from mlagents_envs.side_channel.stats_side_channel import (
     StatsAggregationMethod,
     EnvironmentStats,
@@ -93,6 +95,15 @@ class AgentProcessor:
         self._debug_step_sample_interval = 1
         # Maximum number of flattened elements to log per observation (cap to avoid flooding).
         self._debug_max_elems_per_obs = 128
+        # Trajectory logger for recording per-agent positions to disk (npz).
+        # Stored per-behavior to separate outputs when training multiple behaviors.
+        try:
+            self._traj_logger = AgentTrajectoryLogger(
+                out_dir=os.path.join("trajectory_logs")
+            )
+        except Exception:
+            # If for some reason the logger can't be created, disable trajectory logging.
+            self._traj_logger = None
 
     def add_experiences(
         self,
@@ -275,15 +286,15 @@ class AgentProcessor:
                 ):
                     for i, arr in enumerate(obs):
                         a = np.asarray(arr)
-                        # Log metadata
-                        self._stats_reporter.add_stat(
-                            f"Debug/Obs{i}/ndim", float(a.ndim)
-                        )
-                        # Log first (batch) dim if present
-                        first_dim = float(a.shape[0]) if getattr(a, "shape", None) and len(a.shape) > 0 else 0.0
-                        self._stats_reporter.add_stat(
-                            f"Debug/Obs{i}/shape0", first_dim
-                        )
+                        # # Log metadata
+                        # self._stats_reporter.add_stat(
+                        #     f"Debug/Obs{i}/ndim", float(a.ndim)
+                        # )
+                        # # Log first (batch) dim if present
+                        # first_dim = float(a.shape[0]) if getattr(a, "shape", None) and len(a.shape) > 0 else 0.0
+                        # self._stats_reporter.add_stat(
+                        #     f"Debug/Obs{i}/shape0", first_dim
+                        # )
                     # If we can index by idx, extract this agent's piece
                         # Safely get the first shape dim and ensure it's an int before comparing
                         shape0 = None
@@ -295,7 +306,7 @@ class AgentProcessor:
 
                         # Now process agent_piece: detect team-buffer entries of length 8 and label them
                         agent_piece_arr = np.asarray(agent_piece)
-                        print("Agent Piece Array:", agent_piece_arr)
+                        # print("Agent Piece Array:", agent_piece_arr)
                         mates = None
                         if agent_piece_arr.ndim == 1 and agent_piece_arr.size >= 8 and (
                             agent_piece_arr.size % 8 == 0
@@ -306,79 +317,102 @@ class AgentProcessor:
                         if mates is not None and mates.shape[0] > 0:
                             for mate_idx, mate_entry in enumerate(mates):
                                 me = np.ravel(mate_entry)
-                                self._stats_reporter.add_stat(
-                                    f"Agent/{global_agent_id}/Teammate{mate_idx}/PosX",
-                                    float(me[0]),
-                                )
-                                self._stats_reporter.add_stat(
-                                    f"Agent/{global_agent_id}/Teammate{mate_idx}/PosY",
-                                    float(me[1]),
-                                )
-                                self._stats_reporter.add_stat(
-                                    f"Agent/{global_agent_id}/Teammate{mate_idx}/PosZ",
-                                    float(me[2]),
-                                )
-                                self._stats_reporter.add_stat(
-                                    f"Agent/{global_agent_id}/Teammate{mate_idx}/Rot",
-                                    float(me[3]),
-                                )
-                                self._stats_reporter.add_stat(
-                                    f"Agent/{global_agent_id}/Teammate{mate_idx}/VelX",
-                                    float(me[4]),
-                                )
-                                self._stats_reporter.add_stat(
-                                    f"Agent/{global_agent_id}/Teammate{mate_idx}/VelY",
-                                    float(me[5]),
-                                )
-                                self._stats_reporter.add_stat(
-                                    f"Agent/{global_agent_id}/Teammate{mate_idx}/VelZ",
-                                    float(me[6]),
-                                )
-                                self._stats_reporter.add_stat(
-                                    f"Agent/{global_agent_id}/Teammate{mate_idx}/WasCaptured",
-                                    float(me[7]),
-                                )
-                        else:
-                            flat = np.ravel(agent_piece_arr)
-                            n = min(flat.size, getattr(self, "_debug_max_elems_per_obs", 64))
-                            for j in range(n):
-                                try:
-                                    self._stats_reporter.add_stat(
-                                        f"Debug/Agent/{global_agent_id}/Obs{i}/elem{j}",
-                                        float(flat[j]),
-                                    )
-                                except Exception:
+                                # Prefer trajectory logger for position traces. If unavailable, fall back to stats reporter.
+                                if self._traj_logger is not None:
+                                    # Use a distinct key per observed mate so each seen entity is tracked.
+                                    key = f"{global_agent_id}_tm{mate_idx}"
+                                    # Convert to Python list for the logger
+                                    mate_list = [float(x) for x in me.tolist()]
+                                    self._traj_logger.record(key, mate_list)
+                                else:
                                     pass
-                            if flat.size > n:
-                                self._stats_reporter.add_stat(
-                                    f"Debug/Agent/{global_agent_id}/Obs{i}/elem_count",
-                                    float(flat.size),
-                                )
+                                    # # Fall back to adding individual stats for inspection
+                                    # self._stats_reporter.add_stat(
+                                    #     f"Agent/{global_agent_id}/Teammate{mate_idx}/PosX",
+                                    #     float(me[0]),
+                                    # )
+                                    # self._stats_reporter.add_stat(
+                                    #     f"Agent/{global_agent_id}/Teammate{mate_idx}/PosY",
+                                    #     float(me[1]),
+                                    # )
+                                    # self._stats_reporter.add_stat(
+                                    #     f"Agent/{global_agent_id}/Teammate{mate_idx}/PosZ",
+                                    #     float(me[2]),
+                                    # )
+                                    # self._stats_reporter.add_stat(
+                                    #     f"Agent/{global_agent_id}/Teammate{mate_idx}/Rot",
+                                    #     float(me[3]),
+                                    # )
+                                    # self._stats_reporter.add_stat(
+                                    #     f"Agent/{global_agent_id}/Teammate{mate_idx}/VelX",
+                                    #     float(me[4]),
+                                    # )
+                                    # self._stats_reporter.add_stat(
+                                    #     f"Agent/{global_agent_id}/Teammate{mate_idx}/VelY",
+                                    #     float(me[5]),
+                                    # )
+                                    # self._stats_reporter.add_stat(
+                                    #     f"Agent/{global_agent_id}/Teammate{mate_idx}/VelZ",
+                                    #     float(me[6]),
+                                    # )
+                                    # self._stats_reporter.add_stat(
+                                    #     f"Agent/{global_agent_id}/Teammate{mate_idx}/WasCaptured",
+                                    #     float(me[7]),
+                                    # )
+                    
+                        else:
+                            pass
+                            # flat = np.ravel(agent_piece_arr)
+                            # n = min(flat.size, getattr(self, "_debug_max_elems_per_obs", 64))
+                            # for j in range(n):
+                            #     try:
+                            #         self._stats_reporter.add_stat(
+                            #             f"Debug/Agent/{global_agent_id}/Obs{i}/elem{j}",
+                            #             float(flat[j]),
+                            #         )
+                            #     except Exception:
+                            #         pass
+                            # if flat.size > n:
+                            #     self._stats_reporter.add_stat(
+                            #         f"Debug/Agent/{global_agent_id}/Obs{i}/elem_count",
+                            #         float(flat.size),
+                            #     )
             else:
-                # Fallback: log first found 3-element vector as PosX/PosY/PosZ (original behavior)
-                for i, arr in enumerate(obs):
-                    try:
-                        agent_obs_vec = arr[idx]
-                    except Exception:
-                        # Can't index this observation for this agent (e.g., shape mismatch).
-                        continue
-                    flat = np.ravel(agent_obs_vec)
-                    # Expect at least 3 values for X,Y,Z. If present, log and stop.
-                    if flat.size >= 3:
-                        try:
-                            self._stats_reporter.add_stat(
-                                f"Agent/{global_agent_id}/Obs{i}/PosX", float(flat[0])
-                            )
-                            self._stats_reporter.add_stat(
-                                f"Agent/{global_agent_id}/Obs{i}/PosY", float(flat[1])
-                            )
-                            self._stats_reporter.add_stat(
-                                f"Agent/{global_agent_id}/Obs{i}/PosZ", float(flat[2])
-                            )
-                            break
-                        except Exception:
-                            # If logging fails for any reason, skip and continue safely.
-                            break
+                pass
+                # # Fallback: log first found 3-element vector as PosX/PosY/PosZ (original behavior)
+                # for i, arr in enumerate(obs):
+                #     try:
+                #         agent_obs_vec = arr[idx]
+                #     except Exception:
+                #         # Can't index this observation for this agent (e.g., shape mismatch).
+                #         continue
+                #     flat = np.ravel(agent_obs_vec)
+                #     # Expect at least 3 values for X,Y,Z. If present, log and stop.
+                #     if flat.size >= 3:
+                #         try:
+                #             # Record own-agent position into the trajectory logger if available.
+                #             try:
+                #                 if self._traj_logger is not None:
+                #                     # Build a padded 8-element mate-like record: [x,y,z,rot,vx,vy,vz,wasCaptured]
+                #                     rec = [float(flat[0]), float(flat[1]), float(flat[2]), 0.0, 0.0, 0.0, 0.0, 0.0]
+                #                     self._traj_logger.record(str(global_agent_id), rec)
+                #                 else:
+                #                     self._stats_reporter.add_stat(
+                #                         f"Agent/{global_agent_id}/Obs{i}/PosX", float(flat[0])
+                #                     )
+                #                     self._stats_reporter.add_stat(
+                #                         f"Agent/{global_agent_id}/Obs{i}/PosY", float(flat[1])
+                #                     )
+                #                     self._stats_reporter.add_stat(
+                #                         f"Agent/{global_agent_id}/Obs{i}/PosZ", float(flat[2])
+                #                     )
+                #             except Exception:
+                #                 # Ignore any issues from recording
+                #                 pass
+                #             break
+                #         except Exception:
+                #             # If logging fails for any reason, skip and continue safely.
+                #             break
 
             # Assemble teammate_obs. If none saved, then it will be an empty list.
             group_statuses = []
@@ -433,6 +467,14 @@ class AgentProcessor:
                     "Environment/Episode Length",
                     self._episode_steps.get(global_agent_id, 0),
                 )
+                # Flush/save trajectory logs for this episode if a logger is present.
+                try:
+                    if self._traj_logger is not None:
+                        print(f"Saving trajectory log for agent {global_agent_id}")
+                        self._traj_logger.end_episode()
+                except Exception:
+                    # Do not let logging failures interrupt cleanup.
+                    pass
                 self._clean_agent_data(global_agent_id)
 
     def _clean_agent_data(self, global_id: GlobalAgentId) -> None:
