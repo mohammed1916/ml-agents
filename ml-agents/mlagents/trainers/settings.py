@@ -771,6 +771,10 @@ class CheckpointSettings:
     @property
     def run_logs_dir(self) -> str:
         return os.path.join(self.write_path, "run_logs")
+    
+    @property
+    def trajectory_logs_dir(self) -> str:
+        return os.path.join(self.write_path, "trajectory_logs")
 
     def prioritize_resume_init(self) -> None:
         """Prioritize explicit command line resume/init over conflicting yaml options.
