@@ -97,13 +97,10 @@ class AgentProcessor:
         self._debug_max_elems_per_obs = 128
         # Trajectory logger for recording per-agent positions to disk (npz).
         # Stored per-behavior to separate outputs when training multiple behaviors.
-        try:
-            self._traj_logger = AgentTrajectoryLogger(
-                out_dir=os.path.join("trajectory_logs")
-            )
-        except Exception:
-            # If for some reason the logger can't be created, disable trajectory logging.
-            self._traj_logger = None
+        self._traj_logger = AgentTrajectoryLogger(
+            out_dir=os.path.join("trajectory_logs_")
+        )
+
 
     def add_experiences(
         self,

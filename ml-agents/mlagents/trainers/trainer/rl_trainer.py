@@ -57,9 +57,9 @@ class RLTrainer(Trainer):
         self.model_saver = self.create_model_saver(
             self.trainer_settings, self.artifact_path, self.load
         )
-        self.trajectory_logger = self._create_trajectory_logger(
-            self.artifact_path
-        )
+        # self.trajectory_logger = self._create_trajectory_logger(
+        #     self.artifact_path
+        # )
         self._has_warned_group_rewards = False
 
     def end_episode(self) -> None:
@@ -127,19 +127,19 @@ class RLTrainer(Trainer):
         )
         return model_saver
     
-    @staticmethod
-    def _create_trajectory_logger(artifact_path: str):
-        from mlagents.trainers.agent_trajectory_logger import AgentTrajectoryLogger
-        # artifact_path is typically: <results_dir>/<run_id>
-        # We want trajectory logs under the run-id directory so all behavior
-        # logs for a run are grouped together. Create:
-        # <results_dir>/<run_id>/trajectory_logs
-        run_dir = os.path.dirname(artifact_path)
-        behavior_name = os.path.basename(artifact_path)
-        out_dir = os.path.join(run_dir, "trajectory_logs")
+    # @staticmethod
+    # def _create_trajectory_logger(artifact_path: str):
+    #     from mlagents.trainers.agent_trajectory_logger import AgentTrajectoryLogger
+    #     # artifact_path is typically: <results_dir>/<run_id>
+    #     # We want trajectory logs under the run-id directory so all behavior
+    #     # logs for a run are grouped together. Create:
+    #     # <results_dir>/<run_id>/trajectory_logs
+    #     run_dir = os.path.dirname(artifact_path)
+    #     behavior_name = os.path.basename(artifact_path)
+    #     out_dir = os.path.join(run_dir, "trajectory_logs")
 
-        trajectory_logger = AgentTrajectoryLogger(out_dir=out_dir)
-        return trajectory_logger
+    #     trajectory_logger = AgentTrajectoryLogger(out_dir=out_dir)
+    #     return trajectory_logger
 
     def _policy_mean_reward(self) -> Optional[float]:
         """Returns the mean episode reward for the current policy."""
