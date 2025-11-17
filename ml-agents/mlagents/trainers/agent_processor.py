@@ -97,8 +97,10 @@ class AgentProcessor:
         self._debug_max_elems_per_obs = 128
         # Trajectory logger for recording per-agent positions to disk (npz).
         # Stored per-behavior to separate outputs when training multiple behaviors.
+        
+        # self._traj_logger = None
         self._traj_logger = AgentTrajectoryLogger(
-            out_dir=os.path.join("trajectory_logs_")
+            out_dir=os.path.join("trajectory_logs_/run41_2")
         )
 
 
@@ -292,7 +294,7 @@ class AgentProcessor:
                         # self._stats_reporter.add_stat(
                         #     f"Debug/Obs{i}/shape0", first_dim
                         # )
-                    # If we can index by idx, extract this agent's piece
+                        # If we can index by idx, extract this agent's piece
                         # Safely get the first shape dim and ensure it's an int before comparing
                         shape0 = None
                         if getattr(a, "shape", None) and len(a.shape) > 0:
@@ -315,6 +317,7 @@ class AgentProcessor:
                             for mate_idx, mate_entry in enumerate(mates):
                                 me = np.ravel(mate_entry)
                                 # Prefer trajectory logger for position traces. If unavailable, fall back to stats reporter.
+                                # print("Trajectory logger:", self._traj_logger)
                                 if self._traj_logger is not None:
                                     # Use a distinct key per observed mate so each seen entity is tracked.
                                     key = f"{global_agent_id}_tm{mate_idx}"
@@ -322,39 +325,73 @@ class AgentProcessor:
                                     mate_list = [float(x) for x in me.tolist()]
                                     self._traj_logger.record(key, mate_list)
                                 else:
+                                    # pass
+                                    # Fall back to adding individual stats for inspection
+                                    self._stats_reporter.add_stat(
+                                        f"Agent/{global_agent_id}/Teammate{mate_idx}/PosX",
+                                        float(me[0]),
+                                    )
+                                    self._stats_reporter.add_stat(
+                                        f"Agent/{global_agent_id}/Teammate{mate_idx}/PosY",
+                                        float(me[1]),
+                                    )
+                                    self._stats_reporter.add_stat(
+                                        f"Agent/{global_agent_id}/Teammate{mate_idx}/PosZ",
+                                        float(me[2]),
+                                    )
+                                    self._stats_reporter.add_stat(
+                                        f"Agent/{global_agent_id}/Teammate{mate_idx}/Rot",
+                                        float(me[3]),
+                                    )
+                                    self._stats_reporter.add_stat(
+                                        f"Agent/{global_agent_id}/Teammate{mate_idx}/VelX",
+                                        float(me[4]),
+                                    )
+                                    self._stats_reporter.add_stat(
+                                        f"Agent/{global_agent_id}/Teammate{mate_idx}/VelY",
+                                        float(me[5]),
+                                    )
+                                    self._stats_reporter.add_stat(
+                                        f"Agent/{global_agent_id}/Teammate{mate_idx}/VelZ",
+                                        float(me[6]),
+                                    )
+                                    self._stats_reporter.add_stat(
+                                        f"Agent/{global_agent_id}/Teammate{mate_idx}/WasCaptured",
+                                        float(me[7]),
+                                    )
+                    
+                        # Detect boxes: assume 3-element vectors [x,y,z]
+                        boxes = None
+                        if agent_piece_arr.ndim == 1 and agent_piece_arr.size >= 3 and (
+                            agent_piece_arr.size % 3 == 0
+                        ):
+                            boxes = agent_piece_arr.reshape(-1, 3)
+                        elif agent_piece_arr.ndim >= 2 and agent_piece_arr.shape[-1] == 3:
+                            boxes = agent_piece_arr.reshape(-1, 3)
+                        if boxes is not None and boxes.shape[0] > 0:
+                            for box_idx, box_entry in enumerate(boxes):
+                                be = np.ravel(box_entry)
+                                # Prefer trajectory logger for position traces.
+                                if self._traj_logger is not None:
+                                    # Use a distinct key per observed box so each seen box is tracked.
+                                    key = f"{global_agent_id}_box{box_idx}"
+                                    # Convert to Python list for the logger
+                                    box_list = [float(x) for x in be.tolist()]
+                                    self._traj_logger.record(key, box_list)
+                                else:
                                     pass
                                     # # Fall back to adding individual stats for inspection
                                     # self._stats_reporter.add_stat(
-                                    #     f"Agent/{global_agent_id}/Teammate{mate_idx}/PosX",
-                                    #     float(me[0]),
+                                    #     f"Agent/{global_agent_id}/Box{box_idx}/PosX",
+                                    #     float(be[0]),
                                     # )
                                     # self._stats_reporter.add_stat(
-                                    #     f"Agent/{global_agent_id}/Teammate{mate_idx}/PosY",
-                                    #     float(me[1]),
+                                    #     f"Agent/{global_agent_id}/Box{box_idx}/PosY",
+                                    #     float(be[1]),
                                     # )
                                     # self._stats_reporter.add_stat(
-                                    #     f"Agent/{global_agent_id}/Teammate{mate_idx}/PosZ",
-                                    #     float(me[2]),
-                                    # )
-                                    # self._stats_reporter.add_stat(
-                                    #     f"Agent/{global_agent_id}/Teammate{mate_idx}/Rot",
-                                    #     float(me[3]),
-                                    # )
-                                    # self._stats_reporter.add_stat(
-                                    #     f"Agent/{global_agent_id}/Teammate{mate_idx}/VelX",
-                                    #     float(me[4]),
-                                    # )
-                                    # self._stats_reporter.add_stat(
-                                    #     f"Agent/{global_agent_id}/Teammate{mate_idx}/VelY",
-                                    #     float(me[5]),
-                                    # )
-                                    # self._stats_reporter.add_stat(
-                                    #     f"Agent/{global_agent_id}/Teammate{mate_idx}/VelZ",
-                                    #     float(me[6]),
-                                    # )
-                                    # self._stats_reporter.add_stat(
-                                    #     f"Agent/{global_agent_id}/Teammate{mate_idx}/WasCaptured",
-                                    #     float(me[7]),
+                                    #     f"Agent/{global_agent_id}/Box{box_idx}/PosZ",
+                                    #     float(be[2]),
                                     # )
                     
                         else:
